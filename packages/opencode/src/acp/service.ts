@@ -92,7 +92,7 @@ export function make(input: {
   const initialize = Effect.fn("ACP.initialize")(function* (params: InitializeRequest) {
     const started = performance.now()
     const authMethod: AuthMethod = {
-      description: "Run `opencode auth login` in the terminal",
+      description: "Run `utmstack auth login` in the terminal",
       name: "Login with opencode",
       id: AuthMethodID,
     }

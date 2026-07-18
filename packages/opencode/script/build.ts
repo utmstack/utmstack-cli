@@ -1,6 +1,9 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+
+// Regenerate embedded skills/agents so the binary carries the latest.
+await import("./gen-bundled-assets.ts")
 import path from "path"
 import { fileURLToPath } from "url"
 import { createSolidTransformPlugin } from "@opentui/solid/bun-plugin"
@@ -175,8 +178,8 @@ for (const item of targets) {
       autoloadTsconfig: true,
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/opencode`,
-      execArgv: [`--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
+      outfile: `dist/${name}/bin/utmstack`,
+      execArgv: [`--user-agent=utmstack/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
     files: {
@@ -203,7 +206,7 @@ for (const item of targets) {
 
   // Smoke test: only run if binary is for current platform
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
-    const binaryPath = `dist/${name}/bin/opencode`
+    const binaryPath = `dist/${name}/bin/utmstack`
     console.log(`Running smoke test: ${binaryPath} --version`)
     try {
       const versionOutput = await $`${binaryPath} --version`.text()
@@ -234,10 +237,16 @@ for (const item of targets) {
 
 if (Script.release) {
   for (const key of Object.keys(binaries)) {
+    // Release assets are named "utmstack-*" because the installer downloads
+    // "$APP-$target" and $APP is "utmstack".
+    const asset = key.replace(pkg.name, "utmstack")
+    // COPYFILE_DISABLE / --no-xattrs / -X keep macOS AppleDouble "._*" files
+    // and the com.apple.provenance xattr out of the archive; without them
+    // Linux tar prints a warning for every file on extraction.
     if (key.includes("linux")) {
-      await $`tar -czf ../../${key}.tar.gz *`.cwd(`dist/${key}/bin`)
+      await $`env COPYFILE_DISABLE=1 tar --no-xattrs -czf ../../${asset}.tar.gz *`.cwd(`dist/${key}/bin`)
     } else {
-      await $`zip -r ../../${key}.zip *`.cwd(`dist/${key}/bin`)
+      await $`env COPYFILE_DISABLE=1 zip -X -r ../../${asset}.zip *`.cwd(`dist/${key}/bin`)
     }
   }
   await $`gh release upload v${Script.version} ./dist/*.zip ./dist/*.tar.gz --clobber --repo ${process.env.GH_REPO}`

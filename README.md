@@ -1,129 +1,96 @@
-<p align="center">
-  <a href="https://opencode.ai">
-    <picture>
-      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
-      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
-    </picture>
-  </a>
-</p>
-<p align="center">The open source AI coding agent.</p>
-<p align="center">
-  <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
-  <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
-</p>
+# UTMStack CLI
 
-<p align="center">
-  <a href="README.md">English</a> |
-  <a href="README.zh.md">简体中文</a> |
-  <a href="README.zht.md">繁體中文</a> |
-  <a href="README.ko.md">한국어</a> |
-  <a href="README.de.md">Deutsch</a> |
-  <a href="README.es.md">Español</a> |
-  <a href="README.fr.md">Français</a> |
-  <a href="README.it.md">Italiano</a> |
-  <a href="README.da.md">Dansk</a> |
-  <a href="README.ja.md">日本語</a> |
-  <a href="README.pl.md">Polski</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.bs.md">Bosanski</a> |
-  <a href="README.ar.md">العربية</a> |
-  <a href="README.no.md">Norsk</a> |
-  <a href="README.br.md">Português (Brasil)</a> |
-  <a href="README.th.md">ไทย</a> |
-  <a href="README.tr.md">Türkçe</a> |
-  <a href="README.uk.md">Українська</a> |
-  <a href="README.bn.md">বাংলা</a> |
-  <a href="README.gr.md">Ελληνικά</a> |
-  <a href="README.vi.md">Tiếng Việt</a>
-</p>
+The SIEM-aware coding and security agent — a branded distribution of
+[opencode](https://github.com/anomalyco/opencode) that ships with UTMStack's
+SIEM tooling, the ThreatWinds model provider, and a curated set of skills and
+subagents already configured.
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
-
----
-
-### Installation
+## Install
 
 ```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
-
-# Package managers
-npm i -g opencode-ai@latest        # or bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
-brew install opencode              # macOS and Linux (official brew formula, updated less)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # Any OS
-nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev branch
+curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install | bash
 ```
 
-> [!TIP]
-> Remove versions older than 0.1.x before installing.
+The installer places `utmstack` in `~/.utmstack/bin`, adds it to your `PATH`,
+and installs the [UTMStack MCP server](https://github.com/utmstack/MCP) so the
+SIEM tools work immediately. Set `UTMSTACK_SKIP_MCP=1` to skip that step.
 
-### Desktop App (BETA)
-
-OpenCode is also available as a desktop application. Download directly from the [releases page](https://github.com/anomalyco/opencode/releases) or [opencode.ai/download](https://opencode.ai/download).
-
-| Platform              | Download                           |
-| --------------------- | ---------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg`   |
-| macOS (Intel)         | `opencode-desktop-mac-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe` |
-| Linux                 | `.deb`, `.rpm`, or `.AppImage`     |
+## First run
 
 ```bash
-# macOS (Homebrew)
-brew install --cask opencode-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
+utmstack-mcp init     # connect your UTMStack server (URL + credentials)
+utmstack              # start the CLI, then /connect to paste your ThreatWinds API key
 ```
 
-#### Installation Directory
+`utmstack-mcp init` validates your credentials against the live API before
+saving them, and writes them to a `0600` file outside any CLI config — so no
+credentials end up in shell history or in a config file you might share.
 
-The install script respects the following priority order for the installation path:
+## What ships out of the box
 
-1. `$OPENCODE_INSTALL_DIR` - Custom installation directory
-2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
-3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
-4. `$HOME/.opencode/bin` - Default fallback
+**SIEM tools** — the `utmstack` MCP server is enabled by default: alert search
+and triage, log explorer and SQL, incidents, correlation rules, data filters,
+agent inventory, and remote command execution on endpoints.
+
+Remote command execution is **opt-in per server** (`allowAgentCommands`). It
+grants a root/SYSTEM shell on an endpoint, and SIEM log content — which is
+partly written by attackers — reaches the model through log and alert search.
+Enable it only where you want that capability.
+
+**Models** — the `threatwinds` provider is preconfigured
+(`silas-1.6-pro` by default, `silas-1.6` for small tasks). Add your API key with
+`/connect` in the TUI or `utmstack providers login`.
+
+**Skills and subagents** — 26 skills and 9 subagents are embedded in the binary
+and extracted to your config directory on first run, covering planning, code
+review, systematic debugging, test-driven development, and web testing. They are
+version-gated: an upgrade refreshes them without touching skills you added.
+
+## Configuration
+
+Config lives in `~/.config/utmstack/utmstack.json` (`%APPDATA%\utmstack` on
+Windows). The defaults are written on first run and are yours to edit — the CLI
+never overwrites an existing config.
+
+The directory is separate from opencode's, so this CLI and a stock opencode
+install coexist without touching each other's settings. An `opencode.json` in
+the same directory is still read, with `utmstack.json` taking precedence.
+
+## Building from source
 
 ```bash
-# Examples
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
+bun install
+cd packages/opencode
+OPENCODE_VERSION=1.0.0 bun run script/build.ts --single
 ```
 
-### Agents
+The binary lands in `dist/opencode-<platform>-<arch>/bin/utmstack`. Embedded
+skills and agents are regenerated from `packages/opencode/src/assets` on every
+build; `bundled-assets.gen.ts` is generated and not tracked in git.
 
-OpenCode includes two built-in agents you can switch between with the `Tab` key.
+## Upstream
 
-- **build** - Default, full-access agent for development work
-- **plan** - Read-only agent for analysis and code exploration
-  - Denies file edits by default
-  - Asks permission before running bash commands
-  - Ideal for exploring unfamiliar codebases or planning changes
+This is a fork of opencode. Branding and defaults are confined to a small set of
+files so upstream changes remain straightforward to merge:
 
-Also included is a **general** subagent for complex searches and multistep tasks.
-This is used internally and can be invoked using `@general` in messages.
+| Path | Purpose |
+|---|---|
+| `packages/core/src/global.ts` | app name — relocates every config/data/cache directory |
+| `packages/opencode/src/index.ts` | script name, bootstrap invocation |
+| `packages/opencode/src/config/utmstack-bootstrap.ts` | seeds default config, extracts embedded assets |
+| `packages/opencode/src/config/config.ts` | reads `utmstack.json` ahead of `opencode.json` |
+| `packages/opencode/src/plugin/threatwinds.ts` | makes `threatwinds` a first-class auth provider |
+| `packages/opencode/script/gen-bundled-assets.ts` | embeds skills and agents into the binary |
+| `packages/opencode/script/build.ts` | binary name, release asset naming, archive hygiene |
+| `packages/opencode/src/installation/index.ts` | update checks point at this repo, not upstream |
+| `packages/tui/src/logo.ts`, `packages/opencode/src/cli/ui.ts` | wordmarks |
+| `install` | installer, plus the MCP install step |
 
-Learn more about [agents](https://opencode.ai/docs/agents).
+Skills and subagents come from
+[osmontero/opencode-skills](https://github.com/osmontero/opencode-skills).
 
-### Documentation
+Upstream opencode documentation is preserved in `README.upstream.md`.
 
-For more info on how to configure OpenCode, [**head over to our docs**](https://opencode.ai/docs).
+## License
 
-### Contributing
-
-If you're interested in contributing to OpenCode, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
-
-### Building on OpenCode
-
-If you are working on a project that's related to OpenCode and is using "opencode" as part of its name, for example "opencode-dashboard" or "opencode-mobile", please add a note to your README to clarify that it is not built by the OpenCode team and is not affiliated with us in any way.
-
----
-
-**Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
+opencode's license applies to the upstream code. See [LICENSE](LICENSE).

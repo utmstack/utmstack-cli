@@ -29,12 +29,13 @@ import { DbCommand } from "./cli/cmd/db"
 import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
+import { bootstrap as utmstackBootstrap } from "./config/utmstack-bootstrap"
 
 const args = hideBin(process.argv)
 
 function show(out: string) {
   const text = out.trimStart()
-  if (!text.startsWith("opencode ")) {
+  if (!text.startsWith("utmstack ")) {
     process.stderr.write(UI.logo() + EOL + EOL)
     process.stderr.write(text + EOL)
     return
@@ -44,7 +45,7 @@ function show(out: string) {
 
 const cli = yargs(args)
   .parserConfiguration({ "populate--": true })
-  .scriptName("opencode")
+  .scriptName("utmstack")
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")
@@ -75,6 +76,14 @@ const cli = yargs(args)
     process.env.AGENT = "1"
     process.env.OPENCODE = "1"
     process.env.OPENCODE_PID = String(process.pid)
+
+    // Seed default config and extract embedded skills/agents. Never fatal:
+    // a bootstrap failure must not stop the CLI from running.
+    try {
+      utmstackBootstrap()
+    } catch (err) {
+      console.error("utmstack: bootstrap failed:", err)
+    }
   })
   .usage("")
   .completion("completion", "generate shell completion script")

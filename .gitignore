@@ -32,3 +32,7 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+
+# Generated at build time from packages/opencode/src/assets by
+# script/gen-bundled-assets.ts — the assets directory is the source of truth.
+packages/opencode/src/config/bundled-assets.gen.ts
