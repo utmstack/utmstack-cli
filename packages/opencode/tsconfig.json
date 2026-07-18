@@ -12,5 +12,10 @@
       "@/*": ["./src/*"],
       "@test/*": ["./test/*"]
     }
-  }
+  },
+  // src/assets holds the skills and agents embedded into the binary. Their
+  // contents are data, not project source — some skills include illustrative
+  // code samples that reference modules which do not exist here, and those
+  // must not fail the build.
+  "exclude": ["src/assets"]
 }
