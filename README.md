@@ -54,8 +54,8 @@ Every combination below gets a prebuilt binary:
 |---|---|---|
 | macOS 12+ | Apple Silicon (`arm64`) | |
 | macOS 12+ | Intel (`x64`) | includes a no-AVX2 build for older Macs |
-| Linux (glibc) | `x86_64` | Ubuntu 22.04+, RHEL 9+, Debian 12+ |
-| Linux (glibc) | `arm64` / `aarch64` | |
+| Linux (glibc 2.35+) | `x86_64` | Ubuntu 22.04+, RHEL 9+, Debian 12+ |
+| Linux (glibc 2.39+) | `arm64` / `aarch64` | Ubuntu 24.04+, Debian 13+, Kali rolling |
 | Windows 10/11 | `x64` | |
 | Windows 11 | `ARM64` | Surface, and Parallels VMs on Apple Silicon |
 

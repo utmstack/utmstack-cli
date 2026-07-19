@@ -31,11 +31,12 @@ jobs:
           # macOS. Built natively so PyInstaller/Bun ad-hoc signing applies —
           # an unsigned arm64 binary will not execute on Apple Silicon.
           - { runner: macos-14,      target: darwin-arm64, ext: zip }
-          - { runner: macos-13,      target: darwin-x64,   ext: zip, baseline: true }
-          # Linux. Built on 22.04 to pin glibc at 2.35, so the binaries run on
-          # Ubuntu 22.04+ and RHEL 9+.
+          - { runner: macos-15-intel,      target: darwin-x64,   ext: zip, baseline: true }
+          # Linux. x64 builds on 22.04 (glibc 2.35) so it runs on Ubuntu 22.04+
+          # and RHEL 9+. arm64 has no 22.04 ARM runner we can rely on, so it
+          # builds on 24.04 (glibc 2.39) and needs Ubuntu 24.04+ / Debian 13+.
           - { runner: ubuntu-22.04,     target: linux-x64,   ext: tar.gz, baseline: true }
-          - { runner: ubuntu-22.04-arm, target: linux-arm64, ext: tar.gz }
+          - { runner: ubuntu-24.04-arm, target: linux-arm64, ext: tar.gz }
           # Windows, both architectures.
           - { runner: windows-2022,  target: windows-x64,   ext: zip, baseline: true }
           - { runner: windows-11-arm, target: windows-arm64, ext: zip }
