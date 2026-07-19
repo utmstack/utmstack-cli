@@ -67,12 +67,33 @@ jobs:
         env:
           OPENCODE_VERSION: ${{ steps.version.outputs.value }}
         run: |
-          # --baseline additionally emits the no-AVX2 variant for x64 targets.
-          if [ "${{ matrix.baseline }}" = "true" ]; then
-            bun run script/build.ts --single --baseline
-          else
-            bun run script/build.ts --single
+          # --baseline additionally emits the no-AVX2 variant for x64 targets,
+          # which requires Bun to fetch extra cross-compilation artifacts. That
+          # download is known to be flaky ("Failed to extract executable for
+          # bun-<target>-baseline"), so retry before giving up.
+          build() {
+            if [ "${{ matrix.baseline }}" = "true" ]; then
+              bun run script/build.ts --single --baseline
+            else
+              bun run script/build.ts --single
+            fi
+          }
+          ok=0
+          for attempt in 1 2 3; do
+            echo "build attempt $attempt"
+            if build; then ok=1; break; fi
+            echo "attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          if [ "$ok" != "1" ] && [ "${{ matrix.baseline }}" = "true" ]; then
+            # A flaky baseline artifact must not cost us the primary binary for
+            # this platform. Fall back to the native build alone; the installer
+            # only requests -baseline on non-AVX2 x64 hardware, and the native
+            # asset still serves everyone else.
+            echo "baseline builds failed 3x — falling back to the native build only"
+            bun run script/build.ts --single && ok=1
           fi
+          [ "$ok" = "1" ] || { echo "build failed after retries"; exit 1; }
           ls -la dist/
 
       - name: Verify the binary is branded and self-contained
