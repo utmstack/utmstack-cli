@@ -80,8 +80,14 @@ jobs:
         working-directory: packages/opencode
         run: |
           set -eu
-          BIN=$(find dist -type f \( -name utmstack -o -name utmstack.exe \) | head -1)
-          [ -n "$BIN" ] || { echo "no utmstack binary produced"; exit 1; }
+          # Address the exact matrix target. `find | head -1` picked whichever
+          # directory sorted first, which on x64 runs was the musl variant —
+          # a musl-linked binary cannot execute on a glibc runner (missing ELF
+          # interpreter, which surfaces as "No such file or directory" / 127).
+          DIST="dist/opencode-${{ matrix.target }}"
+          BIN="$DIST/bin/utmstack"
+          [ -f "$BIN" ] || BIN="$DIST/bin/utmstack.exe"
+          [ -f "$BIN" ] || { echo "no binary at $DIST/bin"; ls -R dist | head -40; exit 1; }
           echo "binary: $BIN"
 
           got=$("$BIN" --version | tr -d '\r')
@@ -117,6 +123,10 @@ jobs:
           for dir in dist/*/; do
             name=$(basename "$dir")
             [ -d "$dir/bin" ] || continue
+            # The build emits musl variants for free, but they are untested and
+            # unadvertised, and the installer refuses musl outright. Publishing
+            # them would promise support we have not verified.
+            case "$name" in *-musl*) echo "skipping $name (musl, not published)"; continue ;; esac
             asset=$(echo "$name" | sed 's/^opencode-/utmstack-/')
             if [ "${{ matrix.ext }}" = "tar.gz" ]; then
               tar -czf "$OUT/${asset}.tar.gz" -C "$dir/bin" .
