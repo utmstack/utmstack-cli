@@ -110,21 +110,23 @@ jobs:
         working-directory: packages/opencode
         run: |
           set -eu
-          mkdir -p ../../out
+          # Absolute output dir. A relative "../.." from inside dist/<name>/bin
+          # is five levels from the repo root and is trivially miscounted.
+          OUT="$GITHUB_WORKSPACE/out"
+          mkdir -p "$OUT"
           for dir in dist/*/; do
             name=$(basename "$dir")
             [ -d "$dir/bin" ] || continue
             asset=$(echo "$name" | sed 's/^opencode-/utmstack-/')
             if [ "${{ matrix.ext }}" = "tar.gz" ]; then
-              # COPYFILE_DISABLE / --no-xattrs keep macOS AppleDouble files and
-              # the com.apple.provenance xattr out of the archive; without them
-              # Linux tar warns on every extracted file.
-              env COPYFILE_DISABLE=1 tar --no-xattrs -czf "../../out/${asset}.tar.gz" -C "$dir/bin" .
+              tar -czf "$OUT/${asset}.tar.gz" -C "$dir/bin" .
             else
-              (cd "$dir/bin" && env COPYFILE_DISABLE=1 7z a -tzip "../../../../out/${asset}.zip" . >/dev/null)
+              # COPYFILE_DISABLE keeps macOS AppleDouble "._*" files out of the
+              # zip; -X drops extended attributes. Both are no-ops on Windows.
+              (cd "$dir/bin" && env COPYFILE_DISABLE=1 7z a -tzip "$OUT/${asset}.zip" . >/dev/null)
             fi
           done
-          ls -lh ../../out/
+          ls -lh "$OUT"
 
       - uses: actions/upload-artifact@v4
         with:

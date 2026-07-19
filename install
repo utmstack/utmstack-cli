@@ -179,17 +179,21 @@ else
              exit 1
         fi
     else
-        if ! command -v unzip >/dev/null 2>&1; then
-            echo -e "${RED}Error: 'unzip' is required but not installed.${NC}"
+        # Git Bash on Windows ships tar (bsdtar, which reads zip) but NOT unzip,
+        # so accept either rather than hard-requiring unzip.
+        if ! command -v unzip >/dev/null 2>&1 && ! command -v tar >/dev/null 2>&1; then
+            echo -e "${RED}Error: either 'unzip' or 'tar' is required but neither is installed.${NC}"
             exit 1
         fi
     fi
 
     if [ -z "$requested_version" ]; then
         url="https://github.com/utmstack/utmstack-cli/releases/latest/download/$filename"
-        specific_version=$(curl -s https://api.github.com/repos/utmstack/utmstack-cli/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
+        # `set -euo pipefail` makes a failed curl abort here silently, and the
+        # $? test below can never see a non-zero status. Capture it explicitly.
+        specific_version=$(curl -fsSL https://api.github.com/repos/utmstack/utmstack-cli/releases/latest 2>/dev/null | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p') || true
 
-        if [[ $? -ne 0 || -z "$specific_version" ]]; then
+        if [ -z "$specific_version" ]; then
             echo -e "${RED}Failed to fetch version information${NC}"
             exit 1
         fi
@@ -292,7 +296,7 @@ download_with_progress() {
     trap "trap - RETURN; rm -f \"$tracefile\"; printf '\033[?25h' >&4; exec 4>&-" RETURN
 
     (
-        curl --trace-ascii "$tracefile" -s -L -o "$output" "$url"
+        curl -f --trace-ascii "$tracefile" -s -L -o "$output" "$url"
     ) &
     local curl_pid=$!
 
@@ -336,17 +340,36 @@ download_and_install() {
 
     if [[ "$os" == "windows" ]] || ! [ -t 2 ] || ! download_with_progress "$url" "$tmp_dir/$filename"; then
         # Fallback to standard curl on Windows, non-TTY environments, or if custom progress fails
-        curl -# -L -o "$tmp_dir/$filename" "$url"
+        curl -f -# -L -o "$tmp_dir/$filename" "$url" || {
+            echo -e "${RED}Download failed: $url${NC}"
+            echo -e "${MUTED}That build may not exist for this platform in this release.${NC}"
+            exit 1
+        }
     fi
 
     if [ "$os" = "linux" ]; then
         tar -xzf "$tmp_dir/$filename" -C "$tmp_dir"
-    else
+    elif command -v unzip >/dev/null 2>&1; then
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
+    else
+        # bsdtar (Git Bash, macOS) extracts zip archives too.
+        tar -xf "$tmp_dir/$filename" -C "$tmp_dir"
     fi
 
-    mv "$tmp_dir/utmstack" "$INSTALL_DIR"
-    chmod 755 "${INSTALL_DIR}/utmstack"
+    # Windows archives carry utmstack.exe; every other platform carries a
+    # bare "utmstack". Moving the wrong name aborts under `set -e`, and an
+    # installed Windows binary without .exe would not be executable.
+    binary_name="utmstack"
+    if [ "$os" = "windows" ]; then
+        binary_name="utmstack.exe"
+    fi
+    if [ ! -f "$tmp_dir/$binary_name" ]; then
+        echo -e "${RED}Error: archive did not contain $binary_name${NC}"
+        echo -e "${MUTED}Contents: $(ls "$tmp_dir" | tr '\n' ' ')${NC}"
+        exit 1
+    fi
+    mv "$tmp_dir/$binary_name" "$INSTALL_DIR"
+    chmod 755 "${INSTALL_DIR}/${binary_name}"
     rm -rf "$tmp_dir"
 }
 
@@ -382,7 +405,7 @@ add_to_path() {
 
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 
-current_shell=$(basename "$SHELL")
+current_shell=$(basename "${SHELL:-/bin/sh}")
 case $current_shell in
     fish)
         config_files="$HOME/.config/fish/config.fish"

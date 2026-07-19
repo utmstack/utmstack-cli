@@ -7,20 +7,30 @@
 # skipped, the UTMStack MCP server that provides the SIEM tools.
 
 $ErrorActionPreference = 'Stop'
+# On PowerShell 5.1 the Invoke-WebRequest progress bar makes large
+# downloads roughly an order of magnitude slower.
+$ProgressPreference = 'SilentlyContinue'
 
 $Repo    = 'utmstack/utmstack-cli'
 $App     = 'utmstack'
 $Version = if ($env:UTMSTACK_VERSION) { $env:UTMSTACK_VERSION } else { 'latest' }
 
 function Info($m) { Write-Host $m }
-function Fail($m) { Write-Host "error: $m" -ForegroundColor Red; exit 1 }
+# `throw`, not `exit`: these scripts are documented for `irm ... | iex`, which
+# runs in the caller's scope — `exit` would close the user's console before
+# they could read the error, and inside a &-invoked scriptblock it bypasses
+# the surrounding try/catch entirely.
+function Fail($m) { throw "utmstack install: $m" }
 
 # --- platform ------------------------------------------------------------- #
-$arch = switch ($env:PROCESSOR_ARCHITECTURE) {
+# Under WOW64 (a 32-bit PowerShell host) PROCESSOR_ARCHITECTURE reads x86
+# on an x64 machine; PROCESSOR_ARCHITEW6432 carries the real value.
+$rawArch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+$arch = switch ($rawArch) {
     'AMD64' { 'x64' }
     'ARM64' { 'arm64' }
     'x86'   { Fail '32-bit Windows is not supported' }
-    default { Fail "unsupported architecture: $env:PROCESSOR_ARCHITECTURE" }
+    default { Fail "unsupported architecture: $rawArch" }
 }
 $target = "windows-$arch"
 $asset  = "$App-$target.zip"
@@ -82,10 +92,21 @@ try {
     New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 
     Info "Installing to $installDir ..."
-    Expand-Archive -Path $pkg -DestinationPath $tmp -Force
-    $exeSource = Get-ChildItem -Path $tmp -Recurse -Filter "$App.exe" | Select-Object -First 1
+    # Extract into a dedicated subdirectory. Expanding into $tmp would mix the
+    # archive and checksums.txt in with the payload, and the sidecar copy below
+    # would then install them too.
+    $extract = Join-Path $tmp 'extract'
+    New-Item -ItemType Directory -Force -Path $extract | Out-Null
+    Expand-Archive -Path $pkg -DestinationPath $extract -Force
+    $exeSource = Get-ChildItem -Path $extract -Recurse -Filter "$App.exe" | Select-Object -First 1
     if (-not $exeSource) { Fail "archive does not contain $App.exe" }
-    Copy-Item -Path $exeSource.FullName -Destination (Join-Path $installDir "$App.exe") -Force
+
+    # Windows refuses to overwrite a running executable; say so plainly.
+    try {
+        Copy-Item -Path $exeSource.FullName -Destination (Join-Path $installDir "$App.exe") -Force -ErrorAction Stop
+    } catch {
+        Fail "could not write $App.exe - it may be running. Close any $App session and re-run."
+    }
 
     # Ship any sidecar files the archive carries alongside the executable.
     Get-ChildItem -Path $exeSource.DirectoryName -File |
