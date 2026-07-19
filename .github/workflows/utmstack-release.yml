@@ -1,0 +1,134 @@
+name: utmstack-release
+
+# Builds the branded `utmstack` binaries and publishes them as release assets.
+#
+# The installer downloads "$APP-$target" (e.g. utmstack-linux-x64.tar.gz), so
+# every variant the installer can ask for must exist here. A missing -baseline
+# or -musl asset makes the install 404 on non-AVX2 cloud VMs and on Alpine.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (without the leading v)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-14, target: darwin-arm64 }
+          - { runner: macos-13, target: darwin-x64 }
+          - { runner: ubuntu-22.04, target: linux-x64 }
+          - { runner: ubuntu-22.04-arm, target: linux-arm64 }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "value=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        working-directory: packages/opencode
+        env:
+          OPENCODE_VERSION: ${{ steps.version.outputs.value }}
+        run: bun run script/build.ts --single
+
+      - name: Verify the binary is branded and self-contained
+        shell: bash
+        working-directory: packages/opencode
+        run: |
+          set -eu
+          BIN=$(find dist -type f -name utmstack | head -1)
+          [ -n "$BIN" ] || { echo "no utmstack binary produced"; exit 1; }
+          echo "binary: $BIN"
+
+          # Version must match what we asked for.
+          got=$("$BIN" --version)
+          [ "$got" = "${{ steps.version.outputs.value }}" ] || {
+            echo "version mismatch: got '$got'"; exit 1; }
+
+          # The CLI must present itself as utmstack, not opencode.
+          "$BIN" --help 2>&1 | grep -q "utmstack completion" || {
+            echo "help output is not branded"; exit 1; }
+
+          # First run must seed config and extract the embedded skills/agents
+          # into a clean config directory.
+          TMPCFG=$(mktemp -d)
+          XDG_CONFIG_HOME="$TMPCFG" "$BIN" --help >/dev/null 2>&1 || true
+          XDG_CONFIG_HOME="$TMPCFG" "$BIN" mcp list >/dev/null 2>&1 || true
+          test -f "$TMPCFG/utmstack/utmstack.json" || {
+            echo "default config was not seeded"; exit 1; }
+          skills=$(ls "$TMPCFG/utmstack/skills" 2>/dev/null | wc -l | tr -d ' ')
+          agents=$(ls "$TMPCFG/utmstack/agent"/*.md 2>/dev/null | wc -l | tr -d ' ')
+          echo "seeded config, $skills skills, $agents agents"
+          [ "$skills" -gt 0 ] || { echo "no skills extracted"; exit 1; }
+          [ "$agents" -gt 0 ] || { echo "no agents extracted"; exit 1; }
+
+          # The shipped default must point at the utmstack MCP server.
+          grep -q '"utmstack-mcp"' "$TMPCFG/utmstack/utmstack.json" || {
+            echo "default config does not reference utmstack-mcp"; exit 1; }
+
+      - name: Package
+        shell: bash
+        working-directory: packages/opencode
+        run: |
+          set -eu
+          mkdir -p ../../out
+          for dir in dist/*/; do
+            name=$(basename "$dir")
+            asset=$(echo "$name" | sed 's/^opencode-/utmstack-/')
+            # COPYFILE_DISABLE / --no-xattrs keep macOS AppleDouble files and
+            # the com.apple.provenance xattr out of the archive; without them
+            # Linux tar warns on every extracted file.
+            env COPYFILE_DISABLE=1 tar --no-xattrs -czf "../../out/${asset}.tar.gz" -C "$dir/bin" .
+          done
+          ls -lh ../../out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: out/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+
+      - name: Collect and checksum
+        run: |
+          mkdir -p out
+          find artifacts -type f -name '*.tar.gz' -exec cp {} out/ \;
+          cd out && sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
