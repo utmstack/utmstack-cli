@@ -101,7 +101,7 @@ else
 
     combo="$os-$arch"
     case "$combo" in
-      linux-x64|linux-arm64|darwin-x64|darwin-arm64|windows-x64)
+      linux-x64|linux-arm64|darwin-x64|darwin-arm64|windows-x64|windows-arm64)
         ;;
       *)
         echo -e "${RED}Unsupported OS/Arch: $os/$arch${NC}"
@@ -162,7 +162,12 @@ else
       target="$target-baseline"
     fi
     if [ "$is_musl" = "true" ]; then
-      target="$target-musl"
+      # We publish glibc builds only. Fail with an explanation rather than
+      # letting the download 404 on a "-musl" asset that does not exist.
+      echo -e "${RED}musl libc detected (Alpine or similar).${NC}"
+      echo -e "${MUTED}These builds are linked against glibc and will not run here.${NC}"
+      echo -e "${MUTED}Build from source instead: https://github.com/utmstack/utmstack-cli#building-from-source${NC}"
+      exit 1
     fi
 
     filename="$APP-$target$archive_ext"

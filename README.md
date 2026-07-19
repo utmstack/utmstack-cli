@@ -7,13 +7,65 @@ subagents already configured.
 
 ## Install
 
+Find your platform below and copy the matching command. The installer detects
+your CPU architecture automatically — there is one command per operating
+system, not per architecture.
+
+### macOS — Apple Silicon (M1–M4) and Intel
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install | bash
 ```
 
-The installer places `utmstack` in `~/.utmstack/bin`, adds it to your `PATH`,
-and installs the [UTMStack MCP server](https://github.com/utmstack/MCP) so the
-SIEM tools work immediately. Set `UTMSTACK_SKIP_MCP=1` to skip that step.
+### Linux — x86_64 and ARM64
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install | bash
+```
+
+### Windows — x64 and ARM64 (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install.ps1 | iex
+```
+
+Run this in **PowerShell**, not `cmd.exe`. If you prefer Git Bash or WSL, use
+the macOS/Linux command above instead — it works there too.
+
+### What gets installed
+
+| | Location |
+|---|---|
+| macOS / Linux | `~/.utmstack/bin/utmstack` |
+| Windows | `%USERPROFILE%\.utmstack\bin\utmstack.exe` |
+
+The installer adds that directory to your `PATH` and also installs the
+[UTMStack MCP server](https://github.com/utmstack/MCP), which provides the SIEM
+tools. Open a new terminal afterwards so `PATH` takes effect.
+
+Set `UTMSTACK_SKIP_MCP=1` to skip the MCP server. Set `UTMSTACK_VERSION=1.2.3`
+to install a specific version instead of the latest.
+
+### Supported platforms
+
+Every combination below gets a prebuilt binary:
+
+| Operating system | Architecture | Notes |
+|---|---|---|
+| macOS 12+ | Apple Silicon (`arm64`) | |
+| macOS 12+ | Intel (`x64`) | includes a no-AVX2 build for older Macs |
+| Linux (glibc) | `x86_64` | Ubuntu 22.04+, RHEL 9+, Debian 12+ |
+| Linux (glibc) | `arm64` / `aarch64` | |
+| Windows 10/11 | `x64` | |
+| Windows 11 | `ARM64` | Surface, and Parallels VMs on Apple Silicon |
+
+**Older or virtualised x64 CPUs**: many cloud VMs lack AVX2. The installer
+detects this and fetches a `-baseline` build automatically — no action needed.
+
+**Alpine / musl Linux** is not covered by these binaries, which are built
+against glibc. Build from source there (see below).
+
+**32-bit systems** are not supported.
 
 ## First run
 

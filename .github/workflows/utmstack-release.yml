@@ -1,10 +1,12 @@
 name: utmstack-release
 
-# Builds the branded `utmstack` binaries and publishes them as release assets.
+# Builds the branded `utmstack` binaries for every platform the installers can
+# request, and publishes them with a checksums.txt the installers verify.
 #
-# The installer downloads "$APP-$target" (e.g. utmstack-linux-x64.tar.gz), so
-# every variant the installer can ask for must exist here. A missing -baseline
-# or -musl asset makes the install 404 on non-AVX2 cloud VMs and on Alpine.
+# The installer downloads "$APP-$target" (e.g. utmstack-linux-x64.tar.gz), so a
+# target missing here is a 404 for those users. The -baseline variants matter:
+# without them, any x64 machine lacking AVX2 — which includes a lot of cloud
+# VMs — cannot install.
 
 on:
   push:
@@ -26,10 +28,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: macos-14, target: darwin-arm64 }
-          - { runner: macos-13, target: darwin-x64 }
-          - { runner: ubuntu-22.04, target: linux-x64 }
-          - { runner: ubuntu-22.04-arm, target: linux-arm64 }
+          # macOS. Built natively so PyInstaller/Bun ad-hoc signing applies —
+          # an unsigned arm64 binary will not execute on Apple Silicon.
+          - { runner: macos-14,      target: darwin-arm64, ext: zip }
+          - { runner: macos-13,      target: darwin-x64,   ext: zip, baseline: true }
+          # Linux. Built on 22.04 to pin glibc at 2.35, so the binaries run on
+          # Ubuntu 22.04+ and RHEL 9+.
+          - { runner: ubuntu-22.04,     target: linux-x64,   ext: tar.gz, baseline: true }
+          - { runner: ubuntu-22.04-arm, target: linux-arm64, ext: tar.gz }
+          # Windows, both architectures.
+          - { runner: windows-2022,  target: windows-x64,   ext: zip, baseline: true }
+          - { runner: windows-11-arm, target: windows-arm64, ext: zip }
 
     steps:
       - uses: actions/checkout@v4
@@ -53,33 +62,38 @@ jobs:
 
       - name: Build
         working-directory: packages/opencode
+        shell: bash
         env:
           OPENCODE_VERSION: ${{ steps.version.outputs.value }}
-        run: bun run script/build.ts --single
+        run: |
+          # --baseline additionally emits the no-AVX2 variant for x64 targets.
+          if [ "${{ matrix.baseline }}" = "true" ]; then
+            bun run script/build.ts --single --baseline
+          else
+            bun run script/build.ts --single
+          fi
+          ls -la dist/
 
       - name: Verify the binary is branded and self-contained
         shell: bash
         working-directory: packages/opencode
         run: |
           set -eu
-          BIN=$(find dist -type f -name utmstack | head -1)
+          BIN=$(find dist -type f \( -name utmstack -o -name utmstack.exe \) | head -1)
           [ -n "$BIN" ] || { echo "no utmstack binary produced"; exit 1; }
           echo "binary: $BIN"
 
-          # Version must match what we asked for.
-          got=$("$BIN" --version)
+          got=$("$BIN" --version | tr -d '\r')
           [ "$got" = "${{ steps.version.outputs.value }}" ] || {
             echo "version mismatch: got '$got'"; exit 1; }
 
-          # The CLI must present itself as utmstack, not opencode.
           "$BIN" --help 2>&1 | grep -q "utmstack completion" || {
             echo "help output is not branded"; exit 1; }
 
-          # First run must seed config and extract the embedded skills/agents
-          # into a clean config directory.
+          # First run must seed config and extract the embedded skills/agents.
           TMPCFG=$(mktemp -d)
-          XDG_CONFIG_HOME="$TMPCFG" "$BIN" --help >/dev/null 2>&1 || true
-          XDG_CONFIG_HOME="$TMPCFG" "$BIN" mcp list >/dev/null 2>&1 || true
+          XDG_CONFIG_HOME="$TMPCFG" APPDATA="$TMPCFG" "$BIN" --help >/dev/null 2>&1 || true
+          XDG_CONFIG_HOME="$TMPCFG" APPDATA="$TMPCFG" "$BIN" mcp list >/dev/null 2>&1 || true
           test -f "$TMPCFG/utmstack/utmstack.json" || {
             echo "default config was not seeded"; exit 1; }
           skills=$(ls "$TMPCFG/utmstack/skills" 2>/dev/null | wc -l | tr -d ' ')
@@ -87,8 +101,6 @@ jobs:
           echo "seeded config, $skills skills, $agents agents"
           [ "$skills" -gt 0 ] || { echo "no skills extracted"; exit 1; }
           [ "$agents" -gt 0 ] || { echo "no agents extracted"; exit 1; }
-
-          # The shipped default must point at the utmstack MCP server.
           grep -q '"utmstack-mcp"' "$TMPCFG/utmstack/utmstack.json" || {
             echo "default config does not reference utmstack-mcp"; exit 1; }
 
@@ -100,11 +112,16 @@ jobs:
           mkdir -p ../../out
           for dir in dist/*/; do
             name=$(basename "$dir")
+            [ -d "$dir/bin" ] || continue
             asset=$(echo "$name" | sed 's/^opencode-/utmstack-/')
-            # COPYFILE_DISABLE / --no-xattrs keep macOS AppleDouble files and
-            # the com.apple.provenance xattr out of the archive; without them
-            # Linux tar warns on every extracted file.
-            env COPYFILE_DISABLE=1 tar --no-xattrs -czf "../../out/${asset}.tar.gz" -C "$dir/bin" .
+            if [ "${{ matrix.ext }}" = "tar.gz" ]; then
+              # COPYFILE_DISABLE / --no-xattrs keep macOS AppleDouble files and
+              # the com.apple.provenance xattr out of the archive; without them
+              # Linux tar warns on every extracted file.
+              env COPYFILE_DISABLE=1 tar --no-xattrs -czf "../../out/${asset}.tar.gz" -C "$dir/bin" .
+            else
+              (cd "$dir/bin" && env COPYFILE_DISABLE=1 7z a -tzip "../../../../out/${asset}.zip" . >/dev/null)
+            fi
           done
           ls -lh ../../out/
 
@@ -124,9 +141,9 @@ jobs:
       - name: Collect and checksum
         run: |
           mkdir -p out
-          find artifacts -type f -name '*.tar.gz' -exec cp {} out/ \;
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} out/ \;
           cd out && sha256sum * > checksums.txt
-          cat checksums.txt
+          echo "Publishing:"; cat checksums.txt
 
       - uses: softprops/action-gh-release@v2
         with:
