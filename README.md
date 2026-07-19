@@ -67,6 +67,23 @@ against glibc. Build from source there (see below).
 
 **32-bit systems** are not supported.
 
+### Unsigned binaries
+
+The `utmstack` binary is not code-signed. It runs normally — signing is not required to
+execute anything — but two situations are worth knowing about.
+
+On **macOS**, binaries fetched by `curl` are not quarantined, so the installer works as-is;
+downloading an asset from the Releases page in a browser will trip Gatekeeper (clear it
+with `xattr -dr com.apple.quarantine ~/.utmstack/bin/utmstack`).
+
+On **Windows**, SmartScreen triggers on Mark-of-the-Web, which browsers apply and
+`Invoke-WebRequest` does not — so `install.ps1` is normally silent. If Defender flags the
+binary anyway, verify its SHA256 against the release's `checksums.txt` and add an exclusion
+for `%USERPROFILE%\.utmstack\bin`.
+
+This matches how opencode itself is distributed. Every release publishes `checksums.txt`,
+and the installers verify against it and refuse to install if they cannot.
+
 ## First run
 
 ```bash
