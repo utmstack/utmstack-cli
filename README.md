@@ -139,7 +139,11 @@ files so upstream changes remain straightforward to merge:
 | `install` | installer, plus the MCP install step |
 
 Skills and subagents come from
-[osmontero/opencode-skills](https://github.com/osmontero/opencode-skills).
+[osmontero/opencode-skills](https://github.com/osmontero/opencode-skills). They
+carry their own licenses, preserved alongside each one in
+`packages/opencode/src/assets/` — a mix of MIT (Jesse Vincent, Osmany Montero)
+and Apache-2.0 (Anthropic, PBC). Those `LICENSE.txt` files ship with the bundle
+and are extracted to your config directory with the skills themselves.
 
 Upstream opencode documentation is preserved in `README.upstream.md`.
 
