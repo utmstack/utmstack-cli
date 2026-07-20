@@ -97,7 +97,16 @@ try {
     # would then install them too.
     $extract = Join-Path $tmp 'extract'
     New-Item -ItemType Directory -Force -Path $extract | Out-Null
-    Expand-Archive -Path $pkg -DestinationPath $extract -Force
+    # Prefer tar (bsdtar, shipped on Windows 10+): Expand-Archive is very slow on
+    # ARM for a large many-file zip and can take minutes. Fall back to
+    # Expand-Archive where tar is unavailable.
+    $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
+    if ($tar) {
+        & $tar.Source -xf $pkg -C $extract
+        if ($LASTEXITCODE -ne 0) { Expand-Archive -Path $pkg -DestinationPath $extract -Force }
+    } else {
+        Expand-Archive -Path $pkg -DestinationPath $extract -Force
+    }
     $exeSource = Get-ChildItem -Path $extract -Recurse -Filter "$App.exe" | Select-Object -First 1
     if (-not $exeSource) { Fail "archive does not contain $App.exe" }
 
