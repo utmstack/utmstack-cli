@@ -26,13 +26,17 @@ function Fail($m) { throw "utmstack install: $m" }
 # Under WOW64 (a 32-bit PowerShell host) PROCESSOR_ARCHITECTURE reads x86
 # on an x64 machine; PROCESSOR_ARCHITEW6432 carries the real value.
 $rawArch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
-$arch = switch ($rawArch) {
-    'AMD64' { 'x64' }
-    'ARM64' { 'arm64' }
+# Windows always uses the x64 build. The native ARM64 build cannot start its
+# terminal UI — a Bun/OpenTUI FFI limitation that breaks opencode's own
+# windows-arm64 binary identically — so we do not ship one. On ARM64 the x64
+# build runs under Windows emulation, where the TUI works (verified on Windows
+# 11 ARM64).
+switch ($rawArch) {
+    'AMD64' { $target = 'windows-x64' }
+    'ARM64' { $target = 'windows-x64' }
     'x86'   { Fail '32-bit Windows is not supported' }
     default { Fail "unsupported architecture: $rawArch" }
 }
-$target = "windows-$arch"
 $asset  = "$App-$target.zip"
 
 # --- resolve release ------------------------------------------------------ #
@@ -167,6 +171,12 @@ try {
         Info '  NOTE: PATH was updated. Open a new terminal for `utmstack` to resolve.'
         Info ''
     }
+    if ($rawArch -eq 'ARM64') {
+        Info ''
+        Info '  Note: installed the x64 build, which runs under Windows ARM64 emulation.'
+        Info '  (There is no working native ARM64 CLI — the limitation affects opencode too.)'
+    }
+    Info ''
     Info 'First run:'
     Info '  utmstack-mcp init     # connect your UTMStack server'
     Info '  utmstack              # start the CLI, then /connect for your ThreatWinds API key'

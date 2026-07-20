@@ -37,9 +37,12 @@ jobs:
           # builds on 24.04 (glibc 2.39) and needs Ubuntu 24.04+ / Debian 13+.
           - { runner: ubuntu-22.04,     target: linux-x64,   ext: tar.gz, baseline: true }
           - { runner: ubuntu-24.04-arm, target: linux-arm64, ext: tar.gz }
-          # Windows, both architectures.
+          # Windows: x64 only. The native ARM64 build cannot start its terminal
+          # UI (a Bun/OpenTUI FFI limitation that breaks opencode's own
+          # windows-arm64 binary identically), so we do not ship one — on ARM64
+          # the installer uses the x64-baseline build under Windows emulation.
+          # baseline (no-AVX2) is required so the x64-on-ARM emulator can run it.
           - { runner: windows-2022,  target: windows-x64,   ext: zip, baseline: true }
-          - { runner: windows-11-arm, target: windows-arm64, ext: zip }
 
     steps:
       - uses: actions/checkout@v4

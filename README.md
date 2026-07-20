@@ -23,14 +23,32 @@ curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install 
 curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install | bash
 ```
 
-### Windows — x64 and ARM64 (PowerShell)
+### Windows — use WSL for the interactive UI
+
+The **interactive terminal UI does not run on native Windows.** It needs FFI to
+load its terminal renderer (OpenTUI), which is not available in a Bun-compiled
+binary on Windows — the same reason opencode itself ships no native Windows CLI.
+Run it in **WSL**, where it works exactly as on Linux:
+
+```powershell
+wsl --install        # once, then open a WSL terminal
+```
+```bash
+# inside WSL:
+curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install | bash
+utmstack             # full interactive TUI
+```
+
+**Native Windows** (PowerShell) still gives you the headless command and the
+SIEM tools, just not the interactive UI:
 
 ```powershell
 irm https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install.ps1 | iex
+utmstack run "..."   # one-shot, works natively
 ```
 
-Run this in **PowerShell**, not `cmd.exe`. If you prefer Git Bash or WSL, use
-the macOS/Linux command above instead — it works there too.
+The UTMStack MCP server runs natively on Windows too, so its SIEM tools are
+available from any native MCP client (Claude Code, Cursor, …).
 
 ### What gets installed
 
