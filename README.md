@@ -86,14 +86,31 @@ and the installers verify against it and refuse to install if they cannot.
 
 ## First run
 
+You configure **two independent things**, and it's worth keeping them straight:
+
+| | What it's for | How to set it |
+|---|---|---|
+| **ThreatWinds API key** | the **LLM** that powers the assistant | `utmstack` → `/connect` (or `utmstack providers login`) |
+| **UTMStack connection** | your **SIEM** — the URL + API key or username/password | `utmstack-mcp init`, **or just ask the assistant** |
+
+These are different systems with different credentials. The ThreatWinds key authenticates
+the model; the UTMStack connection is how the assistant reaches your SIEM's alerts, logs,
+and agents.
+
 ```bash
-utmstack-mcp init     # connect your UTMStack server (URL + credentials)
 utmstack              # start the CLI, then /connect to paste your ThreatWinds API key
 ```
 
-`utmstack-mcp init` validates your credentials against the live API before
-saving them, and writes them to a `0600` file outside any CLI config — so no
-credentials end up in shell history or in a config file you might share.
+**Connecting your UTMStack — two ways:**
+
+- Run the wizard: `utmstack-mcp init` prompts for the URL and credentials, validates them
+  against the live API, and stores them in a `0600` file.
+- Or just tell the assistant: *"connect to my UTMStack at https://utm.example.com with API
+  key …"* or *"change my UTMStack URL to …"*. It configures the connection for you and the
+  change takes effect immediately — no restart. (It deliberately can't enable remote
+  command execution that way; that stays a `utmstack-mcp init` / config-file decision.)
+
+Either path keeps credentials out of shell history and out of any file you might share.
 
 ## What ships out of the box
 
