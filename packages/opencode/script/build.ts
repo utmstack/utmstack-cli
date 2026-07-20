@@ -120,10 +120,10 @@ const allTargets: {
 // (matched as "<os>-<arch>[-baseline][-<abi>]"). Used for testing one platform
 // without a full matrix build.
 const onlyTargets = process.env.BUILD_TARGETS?.split(",").map((x) => x.trim()).filter(Boolean)
-const targetKey = (t) =>
+const targetKey = (t: (typeof allTargets)[number]) =>
   `${t.os}-${t.arch}${t.avx2 === false ? "-baseline" : ""}${t.abi ? "-" + t.abi : ""}`
 const targets = onlyTargets
-  ? allTargets.filter((item) => onlyTargets.includes(targetKey(item)))
+  ? allTargets.filter((item: (typeof allTargets)[number]) => onlyTargets.includes(targetKey(item)))
   : singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
