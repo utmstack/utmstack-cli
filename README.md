@@ -23,32 +23,20 @@ curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install 
 curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install | bash
 ```
 
-### Windows — use WSL for the interactive UI
-
-The **interactive terminal UI does not run on native Windows.** It needs FFI to
-load its terminal renderer (OpenTUI), which is not available in a Bun-compiled
-binary on Windows — the same reason opencode itself ships no native Windows CLI.
-Run it in **WSL**, where it works exactly as on Linux:
-
-```powershell
-wsl --install        # once, then open a WSL terminal
-```
-```bash
-# inside WSL:
-curl -fsSL https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install | bash
-utmstack             # full interactive TUI
-```
-
-**Native Windows** (PowerShell) still gives you the headless command and the
-SIEM tools, just not the interactive UI:
+### Windows — x64 (and ARM64 via emulation)
 
 ```powershell
 irm https://raw.githubusercontent.com/utmstack/utmstack-cli/main/install.ps1 | iex
-utmstack run "..."   # one-shot, works natively
 ```
 
-The UTMStack MCP server runs natively on Windows too, so its SIEM tools are
-available from any native MCP client (Claude Code, Cursor, …).
+Run this in **PowerShell**, not `cmd.exe`. The installer always installs the
+**x64** build. On an ARM64 machine it runs under Windows' built-in x64
+emulation, where the full interactive TUI works (verified on Windows 11 ARM64).
+
+There is no native ARM64 build: the Bun-compiled ARM64 binary can't initialize
+OpenTUI's terminal renderer — a toolchain limitation that breaks opencode's own
+`windows-arm64` binary identically — so shipping one would just crash. The x64
+build under emulation is the supported ARM64 path.
 
 ### What gets installed
 
@@ -74,8 +62,8 @@ Every combination below gets a prebuilt binary:
 | macOS 12+ | Intel (`x64`) | includes a no-AVX2 build for older Macs |
 | Linux (glibc 2.35+) | `x86_64` | Ubuntu 22.04+, RHEL 9+, Debian 12+ |
 | Linux (glibc 2.39+) | `arm64` / `aarch64` | Ubuntu 24.04+, Debian 13+, Kali rolling |
-| Windows 10/11 | `x64` | |
-| Windows 11 | `ARM64` | Surface, and Parallels VMs on Apple Silicon |
+| Windows 10/11 | `x64` | native |
+| Windows 11 | `ARM64` | via x64 emulation (no native ARM64 build) |
 
 **Older or virtualised x64 CPUs**: many cloud VMs lack AVX2. The installer
 detects this and fetches a `-baseline` build automatically — no action needed.
