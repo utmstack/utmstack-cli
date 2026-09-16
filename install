@@ -502,9 +502,11 @@ install_utmstack_mcp() {
 install_utmstack_mcp
 
 echo -e ""
-echo -e "${MUTED}█  █ ▀█▀ █▀█▀█ █▀▀▀ ${NC}█▀▀▀ ▀█▀ █▀█ █▀▀█ █ █"
-echo -e "${MUTED}█  █  █  █ █ █ ▀▀▀█ ${NC}▀▀▀█  █  █▀█ █    ██ "
-echo -e "${MUTED}▀▀▀▀  ▀  ▀ ▀ ▀ ▀▀▀▀ ${NC}▀▀▀▀  ▀  ▀ ▀ ▀▀▀▀ █ █"
+echo -e "${MUTED}▒▒    ▒▒ ▒▒▒▒▒▒▒▒ ▒▒▒    ▒▒▒ ${NC}███████ ████████  █████   ██████ ██   ██"
+echo -e "${MUTED}▒▒    ▒▒    ▒▒    ▒▒▒▒  ▒▒▒▒ ${NC}██         ██    ██   ██ ██      ██  ██"
+echo -e "${MUTED}▒▒    ▒▒    ▒▒    ▒▒ ▒▒▒▒ ▒▒ ${NC}███████    ██    ███████ ██      █████"
+echo -e "${MUTED}▒▒    ▒▒    ▒▒    ▒▒  ▒▒  ▒▒ ${NC}     ██    ██    ██   ██ ██      ██  ██"
+echo -e "${MUTED} ▒▒▒▒▒▒     ▒▒    ▒▒      ▒▒ ${NC}███████    ██    ██   ██  ██████ ██   ██"
 echo -e ""
 echo -e ""
 echo -e "${MUTED}UTMStack CLI - the SIEM-aware coding and security agent.${NC}"
